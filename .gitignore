@@ -1,1 +1,8 @@
 write_gpt
+*.o
+*.a
+*.lds
+*.bin
+*.EFI
+*.INF
+*.hdd
