@@ -6,3 +6,5 @@ write_gpt
 *.EFI
 *.INF
 *.hdd
+.vscode
+todo

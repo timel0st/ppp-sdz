@@ -1,6 +1,6 @@
 # Output file
 TARGET = BOOTX64.EFI
-# ./uefi - POSIX UEFI files
+# ./src/uefi - POSIX UEFI files
 include uefi/Makefile
 
 DISK_IMG_FOLDER = .

@@ -1,6 +1,11 @@
-
+#ifndef EFI_H
+#define EFI_H
 #include "uefi/uefi.h"
-#include "gui.h"
+#include "utils.h"
+#include "sha256.h"
+#include "user.h"
+#include "log.h"
+
 #define cout ST->ConOut
 #define cin ST->ConIn
 
@@ -62,105 +67,20 @@ typedef struct {
     unsigned int   cmap_offs;
 } __attribute__((packed)) ssfn_font_t;
 
-/*
-// EFI_GRAPHICS_OUTPUT_PROTOCOL
-typedef struct EFI_GRAPHICS_OUTPUT_PROTOCOL EFI_GRAPHICS_OUTPUT_PROTOCOL;
+#define cout            ST->ConOut
+#define cin             ST->ConIn
+#define MAX_PASS_LEN    16
+#define MAX_USER_LEN    16
+#define HASH_LEN        33
+#define LOGPATH         "logfile"
+#define ACCPATH         "accs"
+#define CFGPATH         "cfg"
 
-// EFI_PIXEL_BITMASK
-typedef struct {
-    UINT32 RedMask; UINT32 GreenMask;
-    UINT32 BlueMask;
-    UINT32 ReservedMask;
-} EFI_PIXEL_BITMASK;
+typedef struct Cfg {
+    char max_attempts;
+    time_t lock_till;
+    char min_pass_len;
+    char min_login_len;
+} cfg;
 
-// EFI_GRAPHICS_PIXEL_FORMAT
-typedef enum {
-    PixelRedGreenBlueReserved8BitPerColor,
-    PixelBlueGreenRedReserved8BitPerColor,
-    PixelBitMask,
-    PixelBltOnly,
-    PixelFormatMax
-} EFI_GRAPHICS_PIXEL_FORMAT;
-
-// EFI_GRAPHICS_OUTPUT_MODE_INFORMATION
-typedef struct {
-    UINT32                    Version;
-    UINT32                    HorizontalResolution;
-    UINT32                    VerticalResolution;
-    EFI_GRAPHICS_PIXEL_FORMAT PixelFormat; 
-    EFI_PIXEL_BITMASK         PixelInformation;
-    UINT32                    PixelsPerScanLine;
-} EFI_GRAPHICS_OUTPUT_MODE_INFORMATION;
-
-
-// EFI_GRAPHICS_OUTPUT_PROTOCOL_QUERY_MODE: UEFI spec 2.10 section 12.9.2.1
-typedef
-EFI_STATUS
-(EFIAPI *EFI_GRAPHICS_OUTPUT_PROTOCOL_QUERY_MODE) (
-    IN EFI_GRAPHICS_OUTPUT_PROTOCOL          *This,
-    IN UINT32                                ModeNumber,
-    OUT UINTN                                *SizeOfInfo,
-    OUT EFI_GRAPHICS_OUTPUT_MODE_INFORMATION **Info
-);
-
-// EFI_GRAPHICS_OUTPUT_PROTOCOL_SET_MODE: UEFI spec 2.10 section 12.9.2.2
-typedef
-EFI_STATUS
-(EFIAPI *EFI_GRAPHICS_OUTPUT_PROTOCOL_SET_MODE) (
-    IN EFI_GRAPHICS_OUTPUT_PROTOCOL *This,
-    IN UINT32                       ModeNumber
-);
-
-// EFI_GRAPHICS_OUTPUT_BLT_PIXEL
-typedef struct {
-    UINT8 Blue;
-    UINT8 Green;
-    UINT8 Red;
-    UINT8 Reserved;
-} EFI_GRAPHICS_OUTPUT_BLT_PIXEL;
-
-// EFI_GRAPHICS_OUTPUT_BLT_OPERATION
-
-typedef enum {
-    EfiBltVideoFill,
-    EfiBltVideoToBltBuffer,
-    EfiBltBufferToVideo,
-    EfiBltVideoToVideo,
-    EfiGraphicsOutputBltOperationMax
-} EFI_GRAPHICS_OUTPUT_BLT_OPERATION;
-
-// EFI_GRAPHICS_OUTPUT_PROTOCOL_BLT: UEFI spec 2.10 section 12.9.2.3
-typedef
-EFI_STATUS
-(EFIAPI *EFI_GRAPHICS_OUTPUT_PROTOCOL_BLT) (
-    IN EFI_GRAPHICS_OUTPUT_PROTOCOL      *This,
-    IN OUT EFI_GRAPHICS_OUTPUT_BLT_PIXEL *BltBuffer OPTIONAL,
-    IN EFI_GRAPHICS_OUTPUT_BLT_OPERATION BltOperation,
-    IN UINTN                             SourceX,
-    IN UINTN                             SourceY,
-    IN UINTN                             DestinationX,
-    IN UINTN                             DestinationY,
-    IN UINTN                             Width,
-    IN UINTN                             Height,
-    IN UINTN                             Delta OPTIONAL
-);
-
-// EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE
-typedef struct {
-    UINT32                               MaxMode;
-    UINT32                               Mode;
-    EFI_GRAPHICS_OUTPUT_MODE_INFORMATION *Info;
-    UINTN                                SizeOfInfo;
-    EFI_PHYSICAL_ADDRESS                 FrameBufferBase;
-    UINTN                                FrameBufferSize;
-} EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE;
-
-// EFI_GRAPHICS_OUTPUT_PROTOCOL: UEFI spec 2.10 section 12.9.2
-typedef struct EFI_GRAPHICS_OUTPUT_PROTOCOL {
-    EFI_GRAPHICS_OUTPUT_PROTOCOL_QUERY_MODE QueryMode;
-    EFI_GRAPHICS_OUTPUT_PROTOCOL_SET_MODE   SetMode;
-    EFI_GRAPHICS_OUTPUT_PROTOCOL_BLT        Blt;
-    EFI_GRAPHICS_OUTPUT_PROTOCOL_MODE       *Mode;
-} EFI_GRAPHICS_OUTPUT_PROTOCOL;
-
-*/
+#endif

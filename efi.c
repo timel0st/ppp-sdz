@@ -5,13 +5,29 @@ uint32_t *lfb; // display buffer pointer
 uint32_t width, height, pitch; // display resolution
 ssfn_font_t *font; // font struct
 efi_gop_t *gop = NULL; // pointer to graphic output protocol funcs
+uint8_t tries = 0;
 
-#define BG_COLOR 0x1C2951 // "Space cadet" background color
-#define HEADER_COLOR 0x0C1940 // slightly darker bg col
-#define INPUT_BG_COLOR 0x0C1940// unselected input col
-#define INPUT_ACTIVE_COLOR 0x112549 // selected input col
+enum {
+    ROLE_UNAUTHORIZED,
+    ROLE_USER,
+    ROLE_ADMIN
+} Roles;
+
+#define MAX_LOGIN 16
+#define MAX_PASS 16
+char login[MAX_LOGIN+1] = {0}; //login buf
+char password[MAX_PASS+1] = {0}; //password
+char current_login[MAX_LOGIN+1] = {0}; // 0 on unauth
+char role = ROLE_UNAUTHORIZED;
+
+
+#define HEADER_COLOR 0x081030 // "Space cadet" background color
+#define BG_COLOR 0x0C1940 // slightly darker bg col
+#define INPUT_BG_COLOR 0x091133// unselected input field col
+#define INPUT_ACTIVE_COLOR 0x354369 // active input col
 #define SELECT_COLOR 0x293960 // sligtly lighter select col
-
+#define FONT_COLOR 0xFFFFFF // color of font
+#define HEADER_HEIGHT 34 // header and footer height in px
 /*
     Loads SSFN font to struct font from file with specified path
 */
@@ -128,22 +144,12 @@ void printString(int x, int y, const char *s)
             for(m = 1; j; j--, n++, o += pitch)
                 for(p = o, l = 0; l < k; l++, p += 4, m <<= 1) {
                     if(m > 0x80) { frg++; m = 1; }
-                    if(*frg & m) *((unsigned int*)(p)) = 0xFFFFFF;
+                    if(*frg & m) *((unsigned int*)(p)) = FONT_COLOR;
                 }
         }
         gop->Blt(gop, buf, EfiBltBufferToVideo, 0, 0, x, y, 8, 16, 0);
         x += chr[4]+1; y += chr[5];
     }
-}
-
-//Returns number of symbols in multibyte string
-int mbstrlen(char *str) {
-    int r = 0;
-    while (*str) {
-        str += mbtowc(0, (const char*)str, 4);
-        r++;
-    }
-    return r;
 }
 
 void print_centered(int y, char *str) {
@@ -154,40 +160,44 @@ void print_centered(int y, char *str) {
 // FONT - 14 height, 8 width, 1 spacing per symbol!!
 
 int draw_box(uintn_t sx, uintn_t sy, uintn_t w, uintn_t h, uint32_t col) {
-    //uint32_t c = col;
-    gop->Blt(gop, &col, EfiBltVideoFill, 0, 0, sx, sy, w, h, 0);
+    uint32_t c = col;
+    gop->Blt(gop, &c, EfiBltVideoFill, 0, 0, sx, sy, w, h, 0);
     return 0;
 }
 
-void draw_base_screen() {
+void draw_background() {
     uint32_t px = BG_COLOR;
-    gop->Blt(gop, &px, EfiBltVideoFill, 0, 0, 0, 0, width, height, 0);
-    px = HEADER_COLOR;  // space cadet bg col
-    draw_box(0, 0, width, 34, HEADER_COLOR);
-    gop->Blt(gop, &px, EfiBltVideoFill, 0, 0, 0, 0, width, 34, 0);
-    char name[] = "Pretty Poor Privacy SDZ v.0.2";
-    int len = mbstrlen(name)*9;
-    int sx = (width-len)/2;
-    int sy = 10;
-    printString(sx, sy, name);
+    draw_box(0, 34, width, height-68, BG_COLOR);
 }
 
-efi_input_key_t get_key() {
-    efi_event_t events[1];
-    efi_input_key_t key;
-    key.ScanCode = 0;
-    key.UnicodeChar = u'\0';
-    events[0] = cin->WaitForKey;
-    uintn_t index = 0;
-    BS->WaitForEvent(1, events, &index);
-    if (index == 0) cin->ReadKeyStroke(cin, &key);
-    return key;
+void draw_base_screen() {
+    draw_background();
+    draw_box(0, 0, width, 34, HEADER_COLOR);
+    draw_box(0, height-34, width, 34, HEADER_COLOR);
+    print_centered(10, "Pretty Poor Privacy SDZ v.0.3");
+    printString(10, height - 25, "Подсказка по управлению:");
 }
 
 enum {
     ITEM_SELECTABLE,
     ITEM_INPUT
 } ItemTypes;
+
+enum {
+    INPUT_DEFAULT,
+    INPUT_PASSWORD
+} InputTypes;
+
+enum {
+    MENU_BOOT = 1,
+    MENU_AUTH,
+    MENU_FIRST,
+    MENU_LOGGED,
+    MENU_LOCK,
+    MENU_REG,
+    MENU_LOGS,
+    MENU_SETTINGS,
+} MenuTypes;
 
 typedef struct {
     int     type;
@@ -249,7 +259,6 @@ void process_input(item_t *it) {
     input_t *inp = it->item;
     inp->is_active = 1;
     draw_input(it);
-    
     while (1) {
         char c = getchar();
         if (c == 0x08) {
@@ -304,21 +313,14 @@ void select_item(item_t *it, boolean_t sel) {
     draw_item(it);
 }
 
-void handle_menu(menu_t *m) {
+int handle_menu(menu_t *m) {
     select_item(m->items[0], 1);
     while (1) {
-        //char c = getchar();
         efi_input_key_t c = get_key();
-        if (c.ScanCode == SCAN_DOWN) {
+        if (c.ScanCode == SCAN_DOWN || c.ScanCode == SCAN_UP) {
             select_item(m->items[m->cur], 0);
             draw_item(m->items[m->cur]);
-            m->cur = (m->cur+1) % m->len;
-            select_item(m->items[m->cur], 1);
-            draw_item(m->items[m->cur]);
-        } else if (c.ScanCode == SCAN_UP) {
-            select_item(m->items[m->cur], 0);
-            draw_item(m->items[m->cur]);
-            m->cur = (m->cur - 1) < 0 ? m->len - 1 : m->cur - 1;
+            m->cur = c.ScanCode == SCAN_DOWN ? (m->cur+1) % m->len : (m->cur - 1) < 0 ? m->len - 1 : m->cur - 1;
             select_item(m->items[m->cur], 1);
             draw_item(m->items[m->cur]);
         } else if (c.UnicodeChar == 0x0D) {
@@ -329,56 +331,169 @@ void handle_menu(menu_t *m) {
                 break;
             case ITEM_SELECTABLE:
                 select_t *s = (select_t *)m->items[m->cur]->item;
-                void (*fun_ptr)() = (void *)s->action;
-                (*fun_ptr)();
+                int (*fun_ptr)() = (void *)s->action;
+                int r = (*fun_ptr)();
+                if (r) return r;
                 break;
             }
         }
     }
-    free_menu(m);
 }
 
-void draw_menu(menu_t *m) {
-    for (int i = 0; i < m->len; i++) {malloc(sizeof(item_t)*2);
+void reset_forms() {
+    memset(login, 0, MAX_LOGIN);
+    memset(password, 0, MAX_PASS);
+}
+
+int draw_menu(menu_t *m) {
+    for (int i = 0; i < m->len; i++) {
         item_t *item = m->items[i];
         switch (item->type) {
-        case ITEM_INPUT:
-            draw_input(item);
-            break;
-        case ITEM_SELECTABLE:
-            draw_selectable(item);
-            break;
+            case ITEM_INPUT:
+                draw_input(item);
+                break;
+            case ITEM_SELECTABLE:
+                draw_selectable(item);
+                break;
         }
     }
-    handle_menu(m);
+    int r = handle_menu(m);
+    free_menu(m);
+    return r;
 }
 
-void create_account_test() {
+int create_admin_account() {
+    draw_box(0, 210, width, 20, BG_COLOR);
+    if (!strlen(login)) {
+        print_centered(210, "Введите логин!");
+        return 0;
+    } if (!strlen(password)) {
+        print_centered(210, "Введите пароль!");
+        return 0;
+    }
+    //make acc (check if exist?)
     print_centered(210, "Аккаунт создан!");
+    //switch menu
+    return MENU_AUTH; //should switch menu to auth one with return
 }
 
-int main_menu() {
-    print_centered(70, "Первый запуск системы, введите логин и пароль для аккаунта администратора");
-    char login[16] = {0};
-    char password[16] = {0};
-    item_t log_form = create_input("Логин:", login, 0, 16, width/2, 120);
-    item_t pass_form = create_input("Пароль:", password, 1, 16, width/2, 150);
-    item_t submit = create_selectable("Создать аккаунт", &create_account_test, width/2, 180);
-    item_t *items[] = {&log_form, &pass_form, &submit};
-    menu_t menu = create_menu(items, 3);
-    draw_menu(&menu);
+int auth_process() {
+    draw_box(0, 210, width, 20, BG_COLOR);
+    if (!strlen(login)) {
+        print_centered(210, "Введите логин!");
+        return 0;
+    } if (!strlen(password)) {
+        print_centered(210, "Введите пароль!");
+        return 0;
+    }
+    //make acc (check if exist?)
+    print_centered(210, "Успех!");
+    //switch menu
+    return MENU_LOGGED; //should switch menu to auth one with return
+}
+
+int boot_os() {
+    return MENU_BOOT;
+}
+
+int logout() {
+    //reset cuurent acc smh
+    return MENU_AUTH;
+}
+
+int shutdown() {
+    RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
     return 0;
 }
 
-int main() {
+int auth_menu_templ(item_t* submit, char* main_text) {
+    /* template for various auth menus */
+    item_t log_form = create_input("Логин:", login, INPUT_DEFAULT, MAX_LOGIN, width/2, 120);
+    item_t pass_form = create_input("Пароль:", password, INPUT_PASSWORD, MAX_PASS, width/2, 150);
+    item_t *items[] = {&log_form, &pass_form, submit};
+    menu_t menu = create_menu(items, 3);
+    draw_base_screen();
+    print_centered(70, main_text);
+    int r = draw_menu(&menu);
+    reset_forms();
+    return r;
+}
+
+int first_menu() {
+    item_t submit = create_selectable("Создать аккаунт", &create_admin_account, width/2, 180);
+    return auth_menu_templ(&submit, "Первый запуск системы, введите логин и пароль для аккаунта администратора");
+}
+
+int auth_menu() {
+    item_t submit = create_selectable("Войти", &auth_process, width/2, 180);
+    return auth_menu_templ(&submit, "Введите ваш логин и пароль для продолжения");
+}
+
+int reg_menu() {
+    item_t submit = create_selectable("Зарегистрировать", &auth_process, width/2, 180);
+    return auth_menu_templ(&submit, "Введите логин и пароль для регистрации аккаунта пользователя");
+}
+
+int test_hash() {
+    uint8_t h[33] = {0};
+    char s[65] = {0};
+    fprintf(stderr, "1");
+    sha256_hash("TEST", h);
+    fprintf(stderr, "2");
+    write_hash(h, s);
+    fprintf(stderr, "3");
+    print_centered(240, s);
+    return 0;
+}
+
+int user_menu() {
+    uintn_t w = width/3;
+    item_t b = create_selectable("Загрузить систему", &boot_os, w, 120);
+    item_t l = create_selectable("Выйти из системы", &logout, w, 150);
+    item_t s = create_selectable("Выключить компьютер", &shutdown, w, 180);
+    item_t t = create_selectable("Test hash", &test_hash, w, 210);
+    item_t *items[] = {&b, &l, &s, &t};
+    menu_t menu = create_menu(items, 4);
+    draw_base_screen();
+    print_centered(70, "Вы авторизованы как xxx выберите следующее действие");
+    return draw_menu(&menu);
+}
+
+int admin_menu() {
+    return 0;
+}
+
+//initialisation sequence
+void init() {
     // Disable Watchdog Timer
     BS->SetWatchdogTimer(0, 0x10000, 0, NULL);
     // Clear screen
     cout->ClearScreen(cout);
     load_font("font.sfn");
     set_video_mode();
-    draw_base_screen();
-    main_menu();
-    getchar();
+}
+
+int call_menu(int m) {
+    switch (m) {
+    case MENU_FIRST:
+        return first_menu();
+    case MENU_AUTH:
+        return auth_menu();
+    case MENU_REG:
+        return reg_menu();
+    case MENU_LOGGED:
+        return user_menu();    
+    default:
+        return MENU_BOOT;
+    }
+}
+
+int main() {
+    init();
+    int m = MENU_FIRST;
+    while (m != MENU_BOOT) {
+        m = call_menu(m);
+    }
+    free(font);
     return 0;
 }
