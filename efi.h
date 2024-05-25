@@ -72,7 +72,6 @@ typedef struct {
 #define MAX_PASS_LEN    16
 #define MAX_USER_LEN    16
 #define HASH_LEN        33
-#define LOGPATH         "logfile"
 #define ACCPATH         "accs"
 #define CFGPATH         "cfg"
 

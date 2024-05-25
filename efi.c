@@ -7,19 +7,10 @@ ssfn_font_t *font; // font struct
 efi_gop_t *gop = NULL; // pointer to graphic output protocol funcs
 uint8_t tries = 0;
 
-enum {
-    ROLE_UNAUTHORIZED,
-    ROLE_USER,
-    ROLE_ADMIN
-} Roles;
-
-#define MAX_LOGIN 16
-#define MAX_PASS 16
 char login[MAX_LOGIN+1] = {0}; //login buf
 char password[MAX_PASS+1] = {0}; //password
 char current_login[MAX_LOGIN+1] = {0}; // 0 on unauth
 char role = ROLE_UNAUTHORIZED;
-
 
 #define HEADER_COLOR 0x081030 // "Space cadet" background color
 #define BG_COLOR 0x0C1940 // slightly darker bg col
@@ -174,8 +165,8 @@ void draw_base_screen() {
     draw_background();
     draw_box(0, 0, width, 34, HEADER_COLOR);
     draw_box(0, height-34, width, 34, HEADER_COLOR);
-    print_centered(10, "Pretty Poor Privacy SDZ v.0.3");
-    printString(10, height - 25, "Подсказка по управлению:");
+    print_centered(10, "Pretty Poor Privacy SDZ v.0.4");
+    printString(10, height - 25, "Подсказка по управлению: Навигация - стрелки вверх/вниз, Enter - выбор пункта меню");
 }
 
 enum {
@@ -193,7 +184,6 @@ enum {
     MENU_AUTH,
     MENU_FIRST,
     MENU_LOGGED,
-    MENU_LOCK,
     MENU_REG,
     MENU_LOGS,
     MENU_SETTINGS,
@@ -362,7 +352,7 @@ int draw_menu(menu_t *m) {
     return r;
 }
 
-int create_admin_account() {
+int create_account(int role, int retval) {
     draw_box(0, 210, width, 20, BG_COLOR);
     if (!strlen(login)) {
         print_centered(210, "Введите логин!");
@@ -371,13 +361,21 @@ int create_admin_account() {
         print_centered(210, "Введите пароль!");
         return 0;
     }
+    register_account(role, login, password);
     //make acc (check if exist?)
     print_centered(210, "Аккаунт создан!");
+    write_log(login, role, ACTION_REGISTER);
     //switch menu
     return MENU_AUTH; //should switch menu to auth one with return
 }
 
+int create_admin_account() {
+    return create_account(ROLE_ADMIN, MENU_AUTH);
+}
+
 int auth_process() {
+    static int attempts = 0;
+    static int lock_till = 0; //maybe make global and init from file later
     draw_box(0, 210, width, 20, BG_COLOR);
     if (!strlen(login)) {
         print_centered(210, "Введите логин!");
@@ -386,10 +384,39 @@ int auth_process() {
         print_centered(210, "Введите пароль!");
         return 0;
     }
-    //make acc (check if exist?)
-    print_centered(210, "Успех!");
-    //switch menu
-    return MENU_LOGGED; //should switch menu to auth one with return
+    if (time(0) < lock_till) {
+        char s[100] = {0};
+        sprintf(s, "Попытки авторизации заблокированы на %d секунд", lock_till - time(0));
+        print_centered(210, s);
+        return 0;
+    }
+    attempts++;
+    if (attempts > MAX_ATTEMPTS) {
+        char s[170] = {0};
+        sprintf(s, "Превышено максимальное количество попыток авторизации! Вход заблокирован на %d секунд", COOLDOWN*60);
+        print_centered(210, s);
+        write_log(current_login, role, ACTION_LOCK);
+        attempts = 0;
+        lock_till = time(0) + COOLDOWN*60;
+        return 0;
+    }
+    int r = auth(login, password);
+    if (r) {
+        role = r;
+        strncpy(current_login, login, MAX_LOGIN);
+        write_log(current_login, role, ACTION_LOGIN);
+        attempts = 0;
+        return MENU_LOGGED;
+    }
+    char s[100] = {0};
+    sprintf(s, "Неверные данные для входа, осталось попыток: %d", MAX_ATTEMPTS - attempts);
+    write_log("", role, ACTION_LOGIN_ATTEMPT);
+    print_centered(210, s);
+    return 0;
+}
+
+int reg_process() {
+    return create_account(ROLE_USER, MENU_LOGGED);
 }
 
 int boot_os() {
@@ -397,11 +424,14 @@ int boot_os() {
 }
 
 int logout() {
-    //reset cuurent acc smh
+    write_log(current_login, role, ACTION_LOGOUT);
+    memset(current_login, 0, MAX_LOGIN);
+    role = ROLE_UNAUTHORIZED;
     return MENU_AUTH;
 }
 
 int shutdown() {
+    write_log(current_login, role, ACTION_SHUTDOWN);
     RT->ResetSystem(EfiResetShutdown, EFI_SUCCESS, 0, NULL);
     return 0;
 }
@@ -412,7 +442,7 @@ int auth_menu_templ(item_t* submit, char* main_text) {
     item_t pass_form = create_input("Пароль:", password, INPUT_PASSWORD, MAX_PASS, width/2, 150);
     item_t *items[] = {&log_form, &pass_form, submit};
     menu_t menu = create_menu(items, 3);
-    draw_base_screen();
+    draw_background();
     print_centered(70, main_text);
     int r = draw_menu(&menu);
     reset_forms();
@@ -430,37 +460,79 @@ int auth_menu() {
 }
 
 int reg_menu() {
-    item_t submit = create_selectable("Зарегистрировать", &auth_process, width/2, 180);
+    item_t submit = create_selectable("Зарегистрировать", &reg_process, width/2, 180);
     return auth_menu_templ(&submit, "Введите логин и пароль для регистрации аккаунта пользователя");
 }
 
 int test_hash() {
     uint8_t h[33] = {0};
     char s[65] = {0};
-    fprintf(stderr, "1");
     sha256_hash("TEST", h);
-    fprintf(stderr, "2");
     write_hash(h, s);
-    fprintf(stderr, "3");
     print_centered(240, s);
     return 0;
 }
 
-int user_menu() {
+int back_action() {
+    return MENU_LOGGED;
+}
+
+int logs_menu() {
     uintn_t w = width/3;
-    item_t b = create_selectable("Загрузить систему", &boot_os, w, 120);
-    item_t l = create_selectable("Выйти из системы", &logout, w, 150);
-    item_t s = create_selectable("Выключить компьютер", &shutdown, w, 180);
-    item_t t = create_selectable("Test hash", &test_hash, w, 210);
-    item_t *items[] = {&b, &l, &s, &t};
-    menu_t menu = create_menu(items, 4);
-    draw_base_screen();
-    print_centered(70, "Вы авторизованы как xxx выберите следующее действие");
+    item_t b = create_selectable("Вернуться в меню", &back_action, w, 120);
+    item_t *items[] = {&b};
+    menu_t menu = create_menu(items, 1);
+    draw_background();
+    log_text_entry_t *o = calloc(20, sizeof(log_text_entry_t));
+    log_text_entry_t *s = o;
+    //s += snprintf(s, 100, "%015s%16s%5s%50s\n", "Время", "Логин", "Роль", "Событие");
+    printString(20, 150, "Время");
+    printString(170, 150, "Логин");
+    printString(320, 150, "Роль");
+    printString(370, 150, "Событие");
+    int amount = 0;
+    get_log_entries(20, 0, s, &amount);
+    int n = (s-o)/sizeof(log_text_entry_t);
+    char ss[20] = {0};
+    snprintf(ss, 20, "%d", amount);
+    print_centered(120, ss);
+    int y = 180;
+    for (int i = 0; i < amount; i++, y+=25) {
+        printString(20, y, s->ts);
+        printString(170, y, s->login);
+        printString(320, y, s->role);
+        printString(370, y, s->action);
+        s += sizeof(log_text_entry_t);
+    }
+    free(o);
     return draw_menu(&menu);
 }
 
-int admin_menu() {
-    return 0;
+int open_log() {
+    return MENU_LOGS;
+}
+
+int user_menu() {
+    uintn_t w = width/3;
+    menu_t menu;
+    item_t b = create_selectable("Загрузить систему", &boot_os, w, 120);
+    item_t l = create_selectable("Выйти из системы", &logout, w, 150);
+    item_t s = create_selectable("Выключить компьютер", &shutdown, w, 180);
+    item_t lg = create_selectable("Просмотр журнала событий", &open_log, w, 210);
+    if (role == ROLE_ADMIN) {
+        item_t *items[] = {&b, &l, &s, &lg};
+        menu = create_menu(items, 4);
+        // add confgiure
+        // add reg user/delete user, change password?
+    } else {
+        item_t *items[] = {&b, &l, &s};
+        menu = create_menu(items, 3);
+    }
+    draw_background();
+    char authed[120] = {0};
+    sprintf(authed, "Вы авторизованы как %s, выберите следующее действие", current_login);
+    print_centered(70, authed);
+    return draw_menu(&menu);
 }
 
 //initialisation sequence
@@ -471,6 +543,7 @@ void init() {
     cout->ClearScreen(cout);
     load_font("font.sfn");
     set_video_mode();
+    draw_base_screen();
 }
 
 int call_menu(int m) {
@@ -483,6 +556,8 @@ int call_menu(int m) {
         return reg_menu();
     case MENU_LOGGED:
         return user_menu();    
+    case MENU_LOGS:
+        return logs_menu();
     default:
         return MENU_BOOT;
     }
@@ -491,6 +566,7 @@ int call_menu(int m) {
 int main() {
     init();
     int m = MENU_FIRST;
+    if (check_acc_exist()) m = MENU_AUTH;
     while (m != MENU_BOOT) {
         m = call_menu(m);
     }
