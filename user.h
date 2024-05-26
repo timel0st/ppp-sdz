@@ -18,13 +18,18 @@ typedef enum {
     ROLE_ADMIN
 } role_t;
 
-struct User;
+typedef struct {
+    char name[MAX_USER_LEN];
+    uint8_t hash[HASH_LEN];
+    char role;
+} user_t;
 
 int check_acc_exist();
 void sha256_hash(char *s, uint8_t *d);
 int check_password(uint8_t *hash, char *pass);
-int get_account(char *, struct User *);
+int get_account(char *, user_t *);
 int register_account(char role, char* name, char* pass);
 int auth(char* login, char* password);
+boolean_t does_user_exist(char *name);
 
 #endif

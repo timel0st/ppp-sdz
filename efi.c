@@ -168,7 +168,7 @@ void draw_base_screen() {
     draw_background();
     draw_box(0, 0, width, 34, HEADER_COLOR);
     draw_box(0, height-34, width, 34, HEADER_COLOR);
-    print_centered(10, "Pretty Poor Privacy SDZ v.0.5");
+    print_centered(10, "Pretty Poor Privacy SDZ v.0.5.1");
     printString(10, height - 25, "Подсказка по управлению: Навигация - стрелки вверх/вниз, Enter - выбор пункта меню");
 }
 
@@ -363,6 +363,9 @@ int create_account(int role, int retval) {
     } if (!strlen(password)) {
         print_centered(240, "Введите пароль!");
         return 0;
+    } if (does_user_exist(login)) {
+        print_centered(240, "Данное имя пользователя уже занято!");
+        return 0;
     }
     register_account(role, login, password);
     //make acc (check if exist?)
@@ -412,7 +415,7 @@ int auth_process() {
     }
     char s[100] = {0};
     sprintf(s, "Неверные данные для входа, осталось попыток: %d", max_tries - attempts);
-    write_log("", role, ACTION_LOGIN_ATTEMPT);
+    write_log(login, role, ACTION_LOGIN_ATTEMPT);
     print_centered(210, s);
     return 0;
 }
@@ -527,10 +530,10 @@ int save_settings() {
 }
 
 int settings_menu() {
-    item_t tr = create_input("Количество попыток для ввода пароля", tries_inp, INPUT_DEFAULT, 2, width/3, 120);
-    item_t to = create_input("Время блокировки при превышении кол-ва попыток (минут)", timeout_inp, INPUT_DEFAULT, 2, width/3, 150);
-    item_t subm = create_selectable("Сохранить", &save_settings, width/3, 180);
-    item_t bck = create_selectable("Назад", &back_action, width/3, 210);
+    item_t tr = create_input("Количество попыток для ввода пароля", tries_inp, INPUT_DEFAULT, 2, width/2, 120);
+    item_t to = create_input("Время блокировки при превышении кол-ва попыток (минут)", timeout_inp, INPUT_DEFAULT, 2, width/2, 150);
+    item_t subm = create_selectable("Сохранить", &save_settings, width/2, 180);
+    item_t bck = create_selectable("Назад", &back_action, width/2, 210);
     item_t *items[] = {&tr, &to, &subm, &bck};
     menu_t menu = create_menu(items, 4);
     draw_background();

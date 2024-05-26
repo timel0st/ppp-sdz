@@ -1,12 +1,6 @@
 #include "user.h"
 #include "sha256.h"
 
-struct User {
-    char name[MAX_USER_LEN];
-    uint8_t hash[HASH_LEN];
-    char role;
-} user;
-
 /* 
     Checks if any acc exsist in ACCPATH file
     Returns size of file, 0 = no accs created yet 
@@ -35,24 +29,42 @@ int check_password(uint8_t *hash, char *pass) {
     return strncmp((char*)hash, (char*)d_hash, HASH_LEN-1);
 }
 
-/*
-    Puts user with specifed name to u user struct
-    Returns result of finding user with specified name
-*/
-int get_account(char *name, struct User *u) {
+/* returns if this name was already used */
+boolean_t does_user_exist(char *name) {
     FILE *f = fopen(ACCPATH, "r");
     if (!f)
         return 0;
     size_t size;
     size = get_file_len(f);
-    for (int i = 0; i < size/sizeof(struct User); i++) {
-        struct User su;
-        fread(&su, sizeof(struct User), 1, f);
+    for (int i = 0; i < size/sizeof(user_t); i++) {
+        user_t su;
+        fread(&su, sizeof(user_t), 1, f);
         if (strncmp(name, su.name, strlen(su.name)))
             continue;
-        fseek(f, -(long)sizeof(struct User), SEEK_CUR);
+        fclose(f);
+        return 1;
+    }
+    return 0;
+}
+
+/*
+    Puts user with specifed name to u user struct
+    Returns result of finding user with specified name
+*/
+int get_account(char *name, user_t *u) {
+    FILE *f = fopen(ACCPATH, "r");
+    if (!f)
+        return 0;
+    size_t size;
+    size = get_file_len(f);
+    for (int i = 0; i < size/sizeof(user_t); i++) {
+        user_t su;
+        fread(&su, sizeof(user_t), 1, f);
+        if (strncmp(name, su.name, strlen(su.name)))
+            continue;
+        fseek(f, -(long)sizeof(user_t), SEEK_CUR);
         if (u != NULL)
-            fread(u, sizeof(struct User), 1, f);
+            fread(u, sizeof(user_t), 1, f);
         fclose(f);
         return 1;
     }
@@ -62,21 +74,21 @@ int get_account(char *name, struct User *u) {
 
 /* saves user with specified credentials */
 int register_account(char role, char* name, char* pass) {
-    struct User u;
+    user_t u;
     strncpy(u.name, name, MAX_USER_LEN);
     uint8_t p_hash[HASH_LEN] = {0};
     sha256_hash(pass, p_hash);
     memcpy(u.hash, p_hash, HASH_LEN);
     u.role = role;
     FILE *f = fopen(ACCPATH, "a");
-    fwrite(&u, sizeof(struct User), 1, f);
+    fwrite(&u, sizeof(user_t), 1, f);
     fclose(f);
     return 0;
 }
 
 /* returns resulting role after auth */
 int auth(char* login, char* password) {
-    struct User u;
+    user_t u;
     int res = get_account(login, &u);
     if (res && !check_password(u.hash, password)) {
         return u.role;
