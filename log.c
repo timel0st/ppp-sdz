@@ -1,20 +1,24 @@
 #include "log.h"
 
-//need to transform this for output later on
-void file_write_datetime(FILE* f) {
+
+/* Writes current time in log_date_t struct */
+void get_time(log_date_t *ts) {
     efi_time_t t;
     efi_time_capabilities_t cap;
     RT->GetTime(&t, &cap);
-    fprintf(f, "[%04u-%02u-%02u %02u:%02u:%02u] ",
-            (uint64_t)t.Year, (uint64_t)t.Month, (uint64_t)t.Day,
-            (uint64_t)t.Hour, (uint64_t)t.Minute, (uint64_t)t.Second);
+    ts->year = t.Year;
+    ts->month = t.Month;
+    ts->day = t.Day;
+    ts->hour = t.Hour;
+    ts->minute = t.Minute;
+    ts->second = t.Second;
 }
 
 /* Writes msg to file at LOGPATH */
 void write_log(char* username, role_t role, log_action_t action) {
     log_entry_t entry;
     strncpy(entry.login, username, MAX_LOGIN);
-    entry.timestamp = time(0);
+    get_time(&entry.timestamp);
     entry.action = action;
     entry.role = role;
     FILE *f = fopen(LOGPATH, "a");
@@ -49,18 +53,49 @@ void get_action_string(log_action_t action, char* out) {
     }
 }
 
+/* Writes role string representation to out string */
+void get_role_string(role_t role, char* out) {
+    switch (role) {
+    case ROLE_UNAUTHORIZED:
+        strncpy(out, "None", 5);
+        break;
+    case ROLE_USER:
+        strncpy(out, "User", 5);
+        break;
+    case ROLE_ADMIN:
+        strncpy(out, "Admin", 6);
+        break;
+    }
+}
+
+/* Returns total number of log entries */
+int get_entries_num() {
+    FILE *f = fopen(LOGPATH, "r");
+    int l = get_file_len(f);
+    fclose(f);
+    return l / sizeof(log_entry_t);
+}
+
 void get_log_entries(int n, int start, log_text_entry_t* out, int* amount) {
     log_entry_t entry;
     FILE *f = fopen(LOGPATH, "r");
     *amount = 0;
+    fseek(f, sizeof(log_entry_t), SEEK_END);
     for (int i = 0; i < n; i++, *amount+=1) {
-        if (!fread(&entry, sizeof(entry), 1, f))
+        if (fseek(f, -2*(int)sizeof(log_entry_t), SEEK_CUR))
             break;
-        snprintf(out->ts, 16, "%d", entry.timestamp);
+        if (!fread(&entry, sizeof(log_entry_t), 1, f))
+            break;
+        log_date_t t = entry.timestamp;
+        sprintf(out->ts, "%04u-%02u-%02u %02u:%02u:%02u",
+            (uint64_t)t.year, (uint64_t)t.month, (uint64_t)t.day,
+            (uint64_t)t.hour, (uint64_t)t.minute, (uint64_t)t.second);
         snprintf(out->login, 16, "%s", entry.login);
-        snprintf(out->role, 5, "%d", entry.role);
         char a[46] = {0};
+        char r[6] = {0}; //need to fix cut role names smh
         get_action_string(entry.action, a);
+        get_role_string(entry.role, r);
+        snprintf(out->role, 12, "%s", r);
         snprintf(out->action, 50, "%s", a);
         out += sizeof(log_text_entry_t);
     }

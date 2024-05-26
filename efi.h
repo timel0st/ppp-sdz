@@ -5,6 +5,7 @@
 #include "sha256.h"
 #include "user.h"
 #include "log.h"
+#include "cfg.h"
 
 #define cout ST->ConOut
 #define cin ST->ConIn

@@ -17,16 +17,25 @@ typedef enum {
 } log_action_t;
 
 typedef struct {
-    uint32_t timestamp;
+    uint16_t year;
+    uint8_t month;
+    uint8_t day;
+    uint8_t hour;
+    uint8_t minute;
+    uint8_t second;
+} log_date_t;
+
+typedef struct {
+    log_date_t timestamp;
     char login[MAX_LOGIN];
     role_t role;
     log_action_t action;
 } log_entry_t;
 
 typedef struct {
-    char ts[16];
+    char ts[20];
     char login[16];
-    char role[5];
+    char role[6];
     char action[50];
 } log_text_entry_t;
 
