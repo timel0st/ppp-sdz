@@ -6,11 +6,12 @@
 #include "user.h"
 #include "log.h"
 #include "cfg.h"
+#include "gui.h"
+
+#define HEADER_STRING "Pretty Poor Privacy SDZ v.0.5.2"
 
 #define cout ST->ConOut
 #define cin ST->ConIn
-
-//#define EFI_GRAPHICS_OUTPUT_PROTOCOL_GUID { 0x9042a9de, 0x23dc, 0x4a38, {0x96, 0xfb, 0x7a, 0xde, 0xd0, 0x80, 0x51, 0x6a } }
 
 #define IN
 #define OUT
@@ -70,17 +71,6 @@ typedef struct {
 
 #define cout            ST->ConOut
 #define cin             ST->ConIn
-#define MAX_PASS_LEN    16
-#define MAX_USER_LEN    16
-#define HASH_LEN        33
-#define ACCPATH         "accs"
-#define CFGPATH         "cfg"
 
-typedef struct Cfg {
-    char max_attempts;
-    time_t lock_till;
-    char min_pass_len;
-    char min_login_len;
-} cfg;
 
 #endif
