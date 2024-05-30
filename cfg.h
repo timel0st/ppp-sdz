@@ -1,6 +1,7 @@
 #ifndef CFG_H
 #define CFG_H
 #include "uefi/uefi.h"
+
 #define CFGPATH "cfg"
 #define DEFAULT_TRIES 3
 #define DEFAULT_TIMEOUT 1

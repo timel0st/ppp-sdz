@@ -40,6 +40,6 @@ typedef struct {
 } log_text_entry_t;
 
 void write_log(char* username, role_t role, log_action_t action);
-void get_log_entries(int n, int start, log_text_entry_t* out, int* amount);
+uint32_t get_log_entries(uint32_t n, uint32_t start, log_text_entry_t* out);
 
 #endif

@@ -1,6 +1,5 @@
 #include "log.h"
 
-
 /* Writes current time in log_date_t struct */
 void get_time(log_date_t *ts) {
     efi_time_t t;
@@ -76,12 +75,16 @@ int get_entries_num() {
     return l / sizeof(log_entry_t);
 }
 
-void get_log_entries(int n, int start, log_text_entry_t* out, int* amount) {
+/* 
+    Retrieves log entries from log file to out
+    Returns amount of retrieved entries
+*/
+uint32_t get_log_entries(uint32_t n, uint32_t start, log_text_entry_t* out) {
     log_entry_t entry;
     FILE *f = fopen(LOGPATH, "r");
-    *amount = 0;
+    uint32_t i = 0;
     fseek(f, sizeof(log_entry_t), SEEK_END);
-    for (int i = 0; i < n; i++, *amount+=1) {
+    for (; i < n; i++) {
         if (fseek(f, -2*(int)sizeof(log_entry_t), SEEK_CUR))
             break;
         if (!fread(&entry, sizeof(log_entry_t), 1, f))
@@ -100,4 +103,5 @@ void get_log_entries(int n, int start, log_text_entry_t* out, int* amount) {
         out += sizeof(log_text_entry_t);
     }
     fclose(f);
+    return i;
 }

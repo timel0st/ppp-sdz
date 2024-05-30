@@ -2,13 +2,12 @@
 #define EFI_H
 #include "uefi/uefi.h"
 #include "utils.h"
-#include "sha256.h"
 #include "user.h"
 #include "log.h"
 #include "cfg.h"
 #include "gui.h"
 
-#define HEADER_STRING "Pretty Poor Privacy SDZ v.0.5.2"
+#define HEADER_STRING "Pretty Poor Privacy SDZ v.0.5.4"
 
 #define cout ST->ConOut
 #define cin ST->ConIn
@@ -53,21 +52,6 @@ typedef UINTN EFI_TPL;
 typedef UINT64 EFI_PHYSICAL_ADDRESS;
 typedef UINT64 EFI_VIRTUAL_ADDRESS;
 
-typedef struct {
-    unsigned char  magic[4];
-    unsigned int   size;
-    unsigned char  type;
-    unsigned char  features;
-    unsigned char  width;
-    unsigned char  height;
-    unsigned char  baseline;
-    unsigned char  underline;
-    unsigned short fragments_offs;
-    unsigned int   characters_offs;
-    unsigned int   ligature_offs;
-    unsigned int   kerning_offs;
-    unsigned int   cmap_offs;
-} __attribute__((packed)) ssfn_font_t;
 
 #define cout            ST->ConOut
 #define cin             ST->ConIn

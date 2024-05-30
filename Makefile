@@ -1,5 +1,6 @@
 # Output file
 TARGET = BOOTX64.EFI
+SRCS = crypto-algorithms/sha256.c efi.c cfg.c gui.c log.c user.c utils.c
 # ./src/uefi - POSIX UEFI files
 include uefi/Makefile
 

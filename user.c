@@ -1,5 +1,4 @@
 #include "user.h"
-#include "sha256.h"
 
 /* 
     Checks if any acc exsist in ACCPATH file
@@ -29,7 +28,7 @@ int check_password(uint8_t *hash, char *pass) {
     return strncmp((char*)hash, (char*)d_hash, HASH_LEN-1);
 }
 
-/* returns if this name was already used */
+/* Returns if this name was already used */
 boolean_t does_user_exist(char *name) {
     FILE *f = fopen(ACCPATH, "r");
     if (!f)
@@ -72,7 +71,7 @@ int get_account(char *name, user_t *u) {
     return 0;
 }
 
-/* saves user with specified credentials */
+/* Saves user with specified credentials */
 int register_account(char role, char* name, char* pass) {
     user_t u;
     strncpy(u.name, name, MAX_USER_LEN);
@@ -86,7 +85,7 @@ int register_account(char role, char* name, char* pass) {
     return 0;
 }
 
-/* returns resulting role after auth */
+/* Returns resulting role after auth */
 int auth(char* login, char* password) {
     user_t u;
     int res = get_account(login, &u);

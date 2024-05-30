@@ -2,6 +2,7 @@
 #define USER_H
 #include "uefi/uefi.h"
 #include "utils.h"
+#include "crypto-algorithms/sha256.h"
 
 #define MAX_LOGIN 16
 #define MAX_PASS 16

@@ -1,7 +1,6 @@
 #include "cfg.h"
 
-//switch to cfg struct in main later?
-
+/* Creates config file */
 void create_cfg() {
     FILE *f = fopen(CFGPATH, "w");
     cfg_t d = {DEFAULT_TRIES, DEFAULT_TIMEOUT, 0};
@@ -9,6 +8,8 @@ void create_cfg() {
     fclose(f);
 }
 
+/* load settings to vars */
+// switch to settings struct?
 void load_settings(uint8_t* tries, uint8_t* timeout, uint32_t* lock_till) {
     FILE *f = fopen(CFGPATH, "r");
     if (!f) {
@@ -23,6 +24,7 @@ void load_settings(uint8_t* tries, uint8_t* timeout, uint32_t* lock_till) {
     fclose(f);
 }
 
+/* saves current config */
 void save_cfg(uint8_t tries, uint8_t timeout) {
     FILE *f = fopen(CFGPATH, "r");
     cfg_t d = {tries, timeout};
@@ -30,6 +32,7 @@ void save_cfg(uint8_t tries, uint8_t timeout) {
     fclose(f);
 }
 
+/* updates lock till timer */
 void update_lock(uint32_t lock_till) {
     FILE *f = fopen(CFGPATH, "r");
     cfg_t d;
