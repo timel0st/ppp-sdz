@@ -28,10 +28,10 @@ efi_input_key_t get_key() {
 
 /* Returns size of file f */
 size_t get_file_len(FILE *f) {
-    size_t size;
+    size_t cur = ftell(f);
     fseek(f, 0, SEEK_END);
-    size = ftell(f);
-    fseek(f, 0, SEEK_SET);
+    size_t size = ftell(f);
+    fseek(f, cur, SEEK_SET);
     return size;
 }
 

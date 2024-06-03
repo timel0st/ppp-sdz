@@ -1,6 +1,6 @@
 #ifndef CFG_H
 #define CFG_H
-#include "uefi/uefi.h"
+#include "uefi.h"
 
 #define CFGPATH "cfg"
 #define DEFAULT_TRIES 3

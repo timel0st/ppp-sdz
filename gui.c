@@ -147,7 +147,6 @@ void print_string(int x, int y, const char *s)
 */
 void draw_box(uintn_t sx, uintn_t sy, uintn_t w, uintn_t h, uint32_t col) {
     uint32_t c = col;
-    fprintf(stderr, "%d", gop);
     gop->Blt(gop, &c, EfiBltVideoFill, 0, 0, sx, sy, w, h, 0);
 }
 
@@ -179,7 +178,6 @@ void draw_input(item_t *inp) {
         print_string(inp->x+2, inp->y+2, it->buf);
     }
 }
-
 
 /*
     Draws selectable on screen for item sel.

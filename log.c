@@ -2,52 +2,81 @@
 
 /* Writes current time in log_date_t struct */
 void get_time(log_date_t *ts) {
-    efi_time_t t;
-    efi_time_capabilities_t cap;
-    RT->GetTime(&t, &cap);
-    ts->year = t.Year;
-    ts->month = t.Month;
-    ts->day = t.Day;
-    ts->hour = t.Hour;
-    ts->minute = t.Minute;
-    ts->second = t.Second;
+    efi_time_t *t = malloc(sizeof(efi_time_t));
+    RT->GetTime(t, NULL);
+    ts->year = t->Year;
+    ts->month = t->Month;
+    ts->day = t->Day;
+    ts->hour = t->Hour;
+    ts->minute = t->Minute;
+    ts->second = t->Second;
+    free(t);
 }
 
-/* Writes msg to file at LOGPATH */
-void write_log(char* username, role_t role, log_action_t action) {
-    log_entry_t entry;
-    strncpy(entry.login, username, MAX_LOGIN);
-    get_time(&entry.timestamp);
-    entry.action = action;
-    entry.role = role;
-    FILE *f = fopen(LOGPATH, "a");
-    fwrite(&entry, sizeof(entry), 1, f);
+/* Returns total number of log entries */
+uint32_t get_entries_num() {
+    FILE *f = fopen(LOGPATH, "r");
+    uint32_t l = get_file_len(f);
+    fclose(f);
+    return (uint32_t)(l / sizeof(log_entry_t));
+}
+
+/* trims oldest entries from log for size of MAX_LOG_ENTRIES-1 */
+void trim_log() {
+    FILE *f = fopen(LOGPATH, "r");
+    log_entry_t *buf = malloc(sizeof(log_entry_t)*(MAX_LOG_ENTRIES));
+    fseek(f, -(long)sizeof(log_entry_t)*(MAX_LOG_ENTRIES - 1), SEEK_END);
+    fread(buf, sizeof(log_entry_t), MAX_LOG_ENTRIES - 1, f);
+    fclose(f);
+    f = fopen(LOGPATH, "w");
+    fwrite(buf, sizeof(log_entry_t), MAX_LOG_ENTRIES - 1, f);
+    free(buf);
     fclose(f);
 }
+
+/* 
+    Creates log entry from given arguments and appends it to file at LOGPATH 
+    Trims log on write if MAX_LOG_ENTRIES was reached
+*/
+void write_log(char* username, role_t role, log_action_t action) {
+    log_entry_t *entry = malloc(sizeof(log_entry_t));
+    strncpy(entry->login, username, MAX_LOGIN);
+    get_time(&entry->timestamp);
+    entry->action = action;
+    entry->role = role;
+    FILE *f = fopen(LOGPATH, "a");
+    fwrite(entry, sizeof(log_entry_t), 1, f);
+    fclose(f);
+    if (get_entries_num() >= MAX_LOG_ENTRIES) {
+        trim_log();
+        fprintf(stderr, "trimmed");
+    }
+}
+
 
 /* Puts string representation of given action to string out */
 void get_action_string(log_action_t action, char* out) {
     switch (action) {
         case ACTION_LOGIN:
-            strncpy(out, "Вход в систему", 27);
+            strncpy(out, "Вход в систему", 50);
             break;
         case ACTION_LOGOUT:
-            strncpy(out, "Выход из системы", 31);
+            strncpy(out, "Выход из системы", 50);
             break;
         case ACTION_BOOT:
-            strncpy(out, "Загрузка ОС", 22);
+            strncpy(out, "Загрузка ОС", 50);
             break;
         case ACTION_LOGIN_ATTEMPT:
-            strncpy(out, "Неудачная попытка входа", 45);
+            strncpy(out, "Неудачная попытка входа", 50);
             break;
         case ACTION_REGISTER:
-            strncpy(out, "Регистрация аккаунта", 40);
+            strncpy(out, "Регистрация аккаунта", 50);
             break;
         case ACTION_SHUTDOWN:
-            strncpy(out, "Выключение компьютера", 42);
+            strncpy(out, "Выключение компьютера", 50);
             break;
         case ACTION_LOCK:
-            strncpy(out, "Блокировка авторизации", 44);
+            strncpy(out, "Блокировка авторизации", 50);
             break;
     }
 }
@@ -56,10 +85,10 @@ void get_action_string(log_action_t action, char* out) {
 void get_role_string(role_t role, char* out) {
     switch (role) {
     case ROLE_UNAUTHORIZED:
-        strncpy(out, "None", 5);
+        strncpy(out, "None", 6);
         break;
     case ROLE_USER:
-        strncpy(out, "User", 5);
+        strncpy(out, "User", 6);
         break;
     case ROLE_ADMIN:
         strncpy(out, "Admin", 6);
@@ -67,41 +96,38 @@ void get_role_string(role_t role, char* out) {
     }
 }
 
-/* Returns total number of log entries */
-int get_entries_num() {
-    FILE *f = fopen(LOGPATH, "r");
-    int l = get_file_len(f);
-    fclose(f);
-    return l / sizeof(log_entry_t);
-}
-
 /* 
     Retrieves log entries from log file to out
     Returns amount of retrieved entries
 */
 uint32_t get_log_entries(uint32_t n, uint32_t start, log_text_entry_t* out) {
-    log_entry_t entry;
+    log_entry_t *entry = malloc(sizeof(log_entry_t));
     FILE *f = fopen(LOGPATH, "r");
     uint32_t i = 0;
-    fseek(f, sizeof(log_entry_t), SEEK_END);
+    fseek(f, (int)sizeof(log_entry_t)*(1 - start), SEEK_END);
     for (; i < n; i++) {
         if (fseek(f, -2*(int)sizeof(log_entry_t), SEEK_CUR))
             break;
-        if (!fread(&entry, sizeof(log_entry_t), 1, f))
+        if (!fread(entry, sizeof(log_entry_t), 1, f))
             break;
-        log_date_t t = entry.timestamp;
-        sprintf(out->ts, "%04u-%02u-%02u %02u:%02u:%02u",
-            (uint64_t)t.year, (uint64_t)t.month, (uint64_t)t.day,
-            (uint64_t)t.hour, (uint64_t)t.minute, (uint64_t)t.second);
-        snprintf(out->login, 16, "%s", entry.login);
-        char a[46] = {0};
-        char r[6] = {0}; //need to fix cut role names smh
-        get_action_string(entry.action, a);
-        get_role_string(entry.role, r);
-        snprintf(out->role, 12, "%s", r);
-        snprintf(out->action, 50, "%s", a);
-        out += sizeof(log_text_entry_t);
+        snprintf(out[i].ts, MAX_TS_LEN, "%04u-%02u-%02u %02u:%02u:%02u",
+            (uint64_t)entry->timestamp.year,
+            (uint64_t)entry->timestamp.month,
+            (uint64_t)entry->timestamp.day,
+            (uint64_t)entry->timestamp.hour,
+            (uint64_t)entry->timestamp.minute,
+            (uint64_t)entry->timestamp.second);
+        snprintf(out[i].login, MAX_LOGIN, "%s", entry->login);
+        char *a = calloc(MAX_ACTION_LEN, sizeof(uint8_t));
+        char *r = calloc(MAX_ROLE_LEN, sizeof(uint8_t));
+        get_action_string(entry->action, a);
+        get_role_string(entry->role, r);
+        snprintf(out[i].role, 12, "%s", r);
+        snprintf(out[i].action, 50, "%s", a);
+        free(a);
+        free(r);
     }
     fclose(f);
+    free(entry);
     return i;
 }

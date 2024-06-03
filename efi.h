@@ -7,7 +7,7 @@
 #include "cfg.h"
 #include "gui.h"
 
-#define HEADER_STRING "Pretty Poor Privacy SDZ v.0.5.4"
+#define HEADER_STRING "Pretty Poor Privacy SDZ v.0.6"
 
 #define cout ST->ConOut
 #define cin ST->ConIn

@@ -12,11 +12,7 @@ char current_login[MAX_LOGIN+1] = {0}; // 0 on unauth
 char role = ROLE_UNAUTHORIZED;
 static uint8_t attempts = 0; // current amount of login attempts
 static uint32_t lock_till = 0; // current time till unlock
-
-
-/*
-    Loads SSFN font to struct font from file with specified path
-*/
+static uint32_t log_cursor = 0; // current pos for log pages
 
 
 /* 
@@ -33,12 +29,20 @@ void draw_background() {
     draw_box(0, 34, display.width, display.height-68, BG_COLOR);
 }
 
+void draw_header(char* header) {
+    draw_box(0, 0, display.width, 34, HEADER_COLOR);
+    print_centered(10, header);
+}
+
+void draw_footer(char* footer) {
+    draw_box(0, display.height-34, display.width, 34, HEADER_COLOR);
+    print_string(10, display.height - 25, footer);
+}
+
 void draw_base_screen() {
     draw_background();
-    draw_box(0, 0, display.width, 34, HEADER_COLOR);
-    draw_box(0, display.height-34, display.width, 34, HEADER_COLOR);
-    print_centered(10, HEADER_STRING);
-    print_string(10, display.height - 25, "Подсказка по управлению: Навигация - стрелки вверх/вниз, Enter - выбор пункта меню");
+    draw_header(HEADER_STRING);
+    draw_footer("Подсказка: Навигация - стрелки вверх/вниз, Enter - выбор пункта меню");
 }
 
 enum {
@@ -199,29 +203,53 @@ int reg_menu() {
     return auth_menu_templ(&submit, "Введите логин и пароль для регистрации аккаунта пользователя", TRUE);
 }
 
-int logs_menu() {
-    item_t b = create_selectable("Вернуться в меню", &back_action, 20, 120);
-    item_t *items[] = {&b};
-    menu_t menu = create_menu(items, 1);
+void render_logs() {
     draw_background();
-    log_text_entry_t *o = calloc(20, sizeof(log_text_entry_t));
-    log_text_entry_t *s = o;
-    //s += snprintf(s, 100, "%015s%16s%5s%50s\n", "Время", "Логин", "Роль", "Событие");
-    print_string(20, 150, "Время");
-    print_string(220, 150, "Логин");
-    print_string(370, 150, "Роль");
-    print_string(450, 150, "Событие");
-    int amount = get_log_entries(20, 0, s);
-    int y = 180;
+    print_centered(70, "Журнал действий (сначала новые, 20 записей на странице):");
+    log_text_entry_t *o = malloc(ENTRIES_PER_PAGE*sizeof(log_text_entry_t));
+    print_string(20, 180, "Время");
+    print_string(220, 180, "Логин");
+    print_string(370, 180, "Роль");
+    print_string(450, 180, "Событие");
+    int amount = get_log_entries(ENTRIES_PER_PAGE, log_cursor, o);
+    int y = 210;
     for (int i = 0; i < amount; i++, y+=25) {
-        print_string(20, y, s->ts);
-        print_string(220, y, s->login);
-        print_string(370, y, s->role);
-        print_string(450, y, s->action);
-        s += sizeof(log_text_entry_t);
+        print_string(20, y, o[i].ts);
+        print_string(220, y, o[i].login);
+        print_string(370, y, o[i].role);
+        print_string(450, y, o[i].action);
     }
+    char *info = calloc(100, sizeof(uint8_t));
+    snprintf(info, 100, "Отображаются записи %u-%u. Всего записей: %u.",
+            (uint64_t)(log_cursor+1),
+            (uint64_t)(log_cursor+amount),
+            (uint64_t)get_entries_num());
+    print_string(20, 150, info);
+    free(info);
     free(o);
-    print_centered(70, "Последние действия в журнале:");
+}
+
+int fwd_btn() {
+    if (log_cursor + ENTRIES_PER_PAGE < get_entries_num())
+        log_cursor += ENTRIES_PER_PAGE;
+    //render_logs();
+    return MENU_LOGS;
+}
+
+int rew_btn() {
+    if (log_cursor > 0)
+        log_cursor -= ENTRIES_PER_PAGE;
+    //render_logs();
+    return MENU_LOGS;
+}
+
+int logs_menu() {
+    item_t b = create_selectable("Вернуться в меню", &back_action, 430, 120);
+    item_t fwd = create_selectable("К более старым записям", &fwd_btn, 20, 120);
+    item_t rew = create_selectable("К более новым записям", &rew_btn, 230, 120);
+    item_t *items[] = {&fwd, &rew, &b};
+    menu_t menu = create_menu(items, 3);
+    render_logs();
     return draw_menu(&menu);
 }
 
@@ -329,7 +357,6 @@ int call_menu(int m) {
 
 int main(int argc, char **argv) {
     init();
-    
     int m = MENU_FIRST;
     if (check_acc_exist()) m = MENU_AUTH;
     while (m != MENU_BOOT) {
