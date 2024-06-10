@@ -80,6 +80,7 @@ typedef struct {
 typedef struct {
     char*   label;
     void*   action;
+    int     arg;
 } select_t;
 
 boolean_t locate_gop(efi_gop_t **pgop);
@@ -92,12 +93,14 @@ void draw_input(item_t *inp);
 void draw_selectable(item_t *sel);
 void process_input(item_t *it);
 menu_t create_menu(item_t **items, int len);
-item_t create_input(char* label, char* buf, boolean_t is_password, int len, int x, int y);
-item_t create_selectable(char* label, void* action, int x, int y);
+item_t* create_input(char* label, char* buf, boolean_t is_password, int len, int x, int y);
+item_t* create_selectable(char* label, void* action, int arg, int x, int y);
 void draw_item(item_t *it);
 void select_item(item_t *it, boolean_t sel);
 int handle_menu(menu_t *m);
 void free_menu(menu_t *m);
+int draw_menu(menu_t *m);
+void render_menu(menu_t *m);
 void free_font();
 
 

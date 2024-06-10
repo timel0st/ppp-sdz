@@ -222,25 +222,31 @@ menu_t create_menu(item_t **items, int len) {
     which stores input after confirmation, if is_password = true output
     would be hidden from user with "*", len - max length of input 
     x and y defines starting coordinates of input field */
-item_t create_input(char* label, char* buf, boolean_t is_password, int len, int x, int y) {
+item_t* create_input(char* label, char* buf, boolean_t is_password, int len, int x, int y) {
     input_t *input = malloc(sizeof(input_t));
     *input = (input_t){label, buf, is_password, 0, len};
-    return (item_t){ITEM_INPUT, 0, x, y, input};
+    item_t *item = malloc(sizeof(item_t));
+    *item = (item_t){ITEM_INPUT, 0, x, y, input};
+    return item;
 }
 
 /* Returns item struct of ITEM_SELECTABLE type with specified label. 
     action - pointer to function to call on activate selectable
     x and y defines starting coordinates of label string */
-item_t create_selectable(char* label, void* action, int x, int y) {
+item_t* create_selectable(char* label, void* action, int arg, int x, int y) {
     select_t *select = malloc(sizeof(select_t));
-    *select = (select_t){label, action};
-    return (item_t){ITEM_SELECTABLE, 0, x, y, select};
+    *select = (select_t){label, action, arg};
+    item_t *item = malloc(sizeof(item_t));
+    *item = (item_t){ITEM_SELECTABLE, 0, x, y, select};
+    return item;
 }
 
 /* Unallocates every item in menu */
 void free_menu(menu_t *m) {
-    for (int i = 0; i < m->len; i++)
+    for (int i = 0; i < m->len; i++) {
         free(m->items[i]->item);
+        free(m->items[i]);
+    }
 }
 
 /* Draws item it on screen */
@@ -283,13 +289,34 @@ int handle_menu(menu_t *m) {
                 break;
             case ITEM_SELECTABLE:
                 select_t *s = (select_t *)m->items[m->cur]->item;
-                int (*fun_ptr)() = (void *)s->action;
-                int r = (*fun_ptr)();
+                int (*fun_ptr)(int) = (void *)s->action;
+                int r = (*fun_ptr)(s->arg);
                 if (r) return r;
                 break;
             }
         }
     }
+}
+
+void render_menu(menu_t *m) {
+    for (int i = 0; i < m->len; i++) {
+        item_t *item = m->items[i];
+        switch (item->type) {
+            case ITEM_INPUT:
+                draw_input(item);
+                break;
+            case ITEM_SELECTABLE:
+                draw_selectable(item);
+                break;
+        }
+    }
+}
+
+int draw_menu(menu_t *m) {
+    render_menu(m);
+    int r = handle_menu(m);
+    free_menu(m);
+    return r;
 }
 
 /* Frees allocated global GUI font */

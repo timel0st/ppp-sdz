@@ -12,8 +12,7 @@ typedef struct cfg {
     uint32_t lock_till;
 } cfg_t;
 
-void load_settings(uint8_t* tries, uint8_t* timeout, uint32_t *lock_till);
-void save_cfg(uint8_t tries, uint8_t timeout);
-void update_lock(uint32_t lock_till);
+void load_settings(cfg_t *cfg);
+void save_cfg(cfg_t *cfg);
 
 #endif

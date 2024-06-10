@@ -8,38 +8,21 @@ void create_cfg() {
     fclose(f);
 }
 
-/* load settings to vars */
-// switch to settings struct?
-void load_settings(uint8_t* tries, uint8_t* timeout, uint32_t* lock_till) {
+/* load settings to cfg strutct */
+void load_settings(cfg_t *cfg) {
     FILE *f = fopen(CFGPATH, "r");
     if (!f) {
         create_cfg();
         f = fopen(CFGPATH, "r");
     }
-    cfg_t d;
-    fread(&d, sizeof(cfg_t), 1, f);
-    *tries = d.tries;
-    *timeout = d.timeout;
-    *lock_till = d.lock_till;
+    fread(cfg, sizeof(cfg_t), 1, f);
     fclose(f);
 }
 
 /* saves current config */
-void save_cfg(uint8_t tries, uint8_t timeout) {
-    FILE *f = fopen(CFGPATH, "r");
-    cfg_t d = {tries, timeout};
-    fwrite(&d, sizeof(cfg_t), 1, f);
-    fclose(f);
-}
-
-/* updates lock till timer */
-void update_lock(uint32_t lock_till) {
-    FILE *f = fopen(CFGPATH, "r");
-    cfg_t d;
-    fread(&d, sizeof(cfg_t), 1, f);
-    fclose(f);
-    f = fopen(CFGPATH, "w");
-    d.lock_till = lock_till;
-    fwrite(&d, sizeof(cfg_t), 1, f);
+void save_cfg(cfg_t *cfg) {
+    FILE *f = fopen(CFGPATH, "w");
+    //cfg_t d = {tries, timeout};
+    fwrite(cfg, sizeof(cfg_t), 1, f);
     fclose(f);
 }

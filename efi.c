@@ -1,17 +1,13 @@
 #include "efi.h"
 
 // GLOBALS
-
-uint8_t max_tries = DEFAULT_TRIES;
-uint8_t timeout = DEFAULT_TIMEOUT;
+cfg_t cfg;
 display_t display = {0};
 
 char login[MAX_LOGIN+1] = {0}; //login buf
 char password[MAX_PASS+1] = {0}; //password
 char current_login[MAX_LOGIN+1] = {0}; // 0 on unauth
 char role = ROLE_UNAUTHORIZED;
-static uint8_t attempts = 0; // current amount of login attempts
-static uint32_t lock_till = 0; // current time till unlock
 static uint32_t log_cursor = 0; // current pos for log pages
 
 
@@ -46,36 +42,21 @@ void draw_base_screen() {
 }
 
 enum {
-    MENU_BOOT = 1,
+    MENU_SAME,
+    MENU_BOOT,
     MENU_AUTH,
     MENU_FIRST,
     MENU_LOGGED,
     MENU_REG,
     MENU_LOGS,
     MENU_SETTINGS,
+    MENU_MANAGE,
 } MenuTypes;
 
 
 void reset_forms() {
     memset(login, 0, MAX_LOGIN);
     memset(password, 0, MAX_PASS);
-}
-
-int draw_menu(menu_t *m) {
-    for (int i = 0; i < m->len; i++) {
-        item_t *item = m->items[i];
-        switch (item->type) {
-            case ITEM_INPUT:
-                draw_input(item);
-                break;
-            case ITEM_SELECTABLE:
-                draw_selectable(item);
-                break;
-        }
-    }
-    int r = handle_menu(m);
-    free_menu(m);
-    return r;
 }
 
 int create_account(int role, int retval) {
@@ -103,19 +84,21 @@ int create_admin_account() {
 }
 
 int auth_process() {
+    static uint8_t attempts = 0; // current amount of login attempts
     draw_box(0, 210, display.width, 20, BG_COLOR);
     if (!strlen(login)) {
         print_centered(210, "Введите логин!");
-        return 0;
-    } if (!strlen(password)) {
+        return MENU_SAME;
+    } 
+    if (!strlen(password)) {
         print_centered(210, "Введите пароль!");
-        return 0;
+        return MENU_SAME;
     }
-    if (time(0) < lock_till) {
+    if (time(0) < cfg.lock_till) {
         char s[100] = {0};
-        sprintf(s, "Попытки авторизации заблокированы на %d секунд(ы)", lock_till - time(0));
+        sprintf(s, "Попытки авторизации заблокированы на %d секунд(ы)", cfg.lock_till - time(0));
         print_centered(210, s);
-        return 0;
+        return MENU_SAME;
     }
     attempts++;
     int r = auth(login, password);
@@ -126,29 +109,25 @@ int auth_process() {
         attempts = 0;
         return MENU_LOGGED;
     }
-    if (attempts >= max_tries) {
+    if (attempts >= cfg.tries) {
         char s[170] = {0};
-        sprintf(s, "Превышено максимальное количество попыток авторизации! Вход заблокирован на %d секунд", timeout*60);
+        sprintf(s, "Превышено максимальное количество попыток авторизации! Вход заблокирован на %d секунд", cfg.timeout*60);
         print_centered(210, s);
         write_log(current_login, role, ACTION_LOCK);
         attempts = 0;
-        lock_till = time(0) + timeout*60;
-        update_lock(lock_till);
-        return 0;
+        cfg.lock_till = time(0) + cfg.timeout*60;
+        save_cfg(&cfg);
+        return MENU_SAME;
     }
     char s[100] = {0};
-    sprintf(s, "Неверные данные для входа, осталось попыток: %d", max_tries - attempts);
-    write_log(login, role, ACTION_LOGIN_ATTEMPT);
+    snprintf(s, 100, "Неверные данные для входа, осталось попыток: %d", cfg.tries - attempts);
     print_centered(210, s);
-    return 0;
+    write_log(login, role, ACTION_LOGIN_ATTEMPT);
+    return MENU_SAME;
 }
 
 int reg_process() {
     return create_account(ROLE_USER, 0);
-}
-
-int boot_os() {
-    return MENU_BOOT;
 }
 
 int logout() {
@@ -164,21 +143,21 @@ int shutdown() {
     return 0;
 }
 
-int back_action() {
-    return MENU_LOGGED;
+int open_menu(int menu_id) {
+    return menu_id;
 }
 
 int auth_menu_templ(item_t* submit, char* main_text, boolean_t backable) {
     /* template for various auth menus */
-    item_t log_form = create_input("Логин:", login, INPUT_DEFAULT, MAX_LOGIN, display.width/2, 120);
-    item_t pass_form = create_input("Пароль:", password, INPUT_PASSWORD, MAX_PASS, display.width/2, 150);
-    item_t back_sel = create_selectable("Назад", &back_action, display.width/2, 210);
+    item_t *log_form = create_input("Логин:", login, INPUT_DEFAULT, MAX_LOGIN, display.width/2, 120);
+    item_t *pass_form = create_input("Пароль:", password, INPUT_PASSWORD, MAX_PASS, display.width/2, 150);
+    item_t *back_sel = create_selectable("Назад", &open_menu, MENU_LOGGED, display.width/2, 210);
     menu_t menu;
     if (backable) {
-        item_t *items[] = {&log_form, &pass_form, submit, &back_sel};
+        item_t *items[] = {log_form, pass_form, submit, back_sel};
         menu = create_menu(items, 4);
     } else {
-        item_t *items[] = {&log_form, &pass_form, submit};
+        item_t *items[] = {log_form, pass_form, submit};
         menu = create_menu(items, 3);
     }
     draw_background();
@@ -189,28 +168,23 @@ int auth_menu_templ(item_t* submit, char* main_text, boolean_t backable) {
 }
 
 int first_menu() {
-    item_t submit = create_selectable("Создать аккаунт", &create_admin_account, display.width/2, 180);
-    return auth_menu_templ(&submit, "Первый запуск системы, введите логин и пароль для аккаунта администратора", FALSE);
+    item_t *submit = create_selectable("Создать аккаунт", &create_admin_account, ROLE_ADMIN, display.width/2, 180);
+    return auth_menu_templ(submit, "Первый запуск системы, введите логин и пароль для аккаунта администратора", FALSE);
 }
 
 int auth_menu() {
-    item_t submit = create_selectable("Войти", &auth_process, display.width/2, 180);
-    return auth_menu_templ(&submit, "Введите ваш логин и пароль для продолжения", FALSE);
+    item_t *submit = create_selectable("Войти", &auth_process, 0, display.width/2, 180);
+    return auth_menu_templ(submit, "Введите ваш логин и пароль для продолжения", FALSE);
 }
 
 int reg_menu() {
-    item_t submit = create_selectable("Зарегистрировать", &reg_process, display.width/2, 180);
-    return auth_menu_templ(&submit, "Введите логин и пароль для регистрации аккаунта пользователя", TRUE);
+    item_t *submit = create_selectable("Зарегистрировать", &reg_process, ROLE_USER, display.width/2, 180);
+    return auth_menu_templ(submit, "Введите логин и пароль для регистрации аккаунта пользователя", TRUE);
 }
 
 void render_logs() {
-    draw_background();
-    print_centered(70, "Журнал действий (сначала новые, 20 записей на странице):");
+    draw_box(0, 150, display.width, display.height-34-150, BG_COLOR);
     log_text_entry_t *o = malloc(ENTRIES_PER_PAGE*sizeof(log_text_entry_t));
-    print_string(20, 180, "Время");
-    print_string(220, 180, "Логин");
-    print_string(370, 180, "Роль");
-    print_string(450, 180, "Событие");
     int amount = get_log_entries(ENTRIES_PER_PAGE, log_cursor, o);
     int y = 210;
     for (int i = 0; i < amount; i++, y+=25) {
@@ -229,26 +203,33 @@ void render_logs() {
     free(o);
 }
 
-int fwd_btn() {
-    if (log_cursor + ENTRIES_PER_PAGE < get_entries_num())
-        log_cursor += ENTRIES_PER_PAGE;
-    //render_logs();
-    return MENU_LOGS;
-}
+typedef enum {
+    NAV_FWD,
+    NAV_REW
+} nav_btn_t;
 
-int rew_btn() {
-    if (log_cursor > 0)
+int nav_btn(int a) {
+    if (a == 1 && (log_cursor + ENTRIES_PER_PAGE < get_entries_num()))
+        log_cursor += ENTRIES_PER_PAGE;
+    if (a == 0 && log_cursor > 0)
         log_cursor -= ENTRIES_PER_PAGE;
-    //render_logs();
-    return MENU_LOGS;
+    render_logs();
+    return MENU_SAME;
 }
 
 int logs_menu() {
-    item_t b = create_selectable("Вернуться в меню", &back_action, 430, 120);
-    item_t fwd = create_selectable("К более старым записям", &fwd_btn, 20, 120);
-    item_t rew = create_selectable("К более новым записям", &rew_btn, 230, 120);
-    item_t *items[] = {&fwd, &rew, &b};
+    item_t *items[] = {
+        create_selectable("Вернуться в меню", &open_menu, MENU_LOGGED, 430, 120), 
+        create_selectable("К более старым записям", &nav_btn, NAV_REW, 20, 120), 
+        create_selectable("К более новым записям", &nav_btn, NAV_FWD, 230, 120)
+    };
     menu_t menu = create_menu(items, 3);
+    draw_background();
+    print_centered(70, "Журнал действий (сначала новые, 20 записей на странице):");
+    print_string(20, 180, "Время");
+    print_string(220, 180, "Логин");
+    print_string(370, 180, "Роль");
+    print_string(450, 180, "Событие");
     render_logs();
     return draw_menu(&menu);
 }
@@ -268,53 +249,159 @@ int save_settings() {
         print_centered(240, "Время блокировки должно быть от 1 до 99!");
         return 0;
     }
-    max_tries = tr;
-    timeout = to;
-    save_cfg(max_tries, timeout);
+    cfg.tries = tr;
+    cfg.timeout = to;
+    save_cfg(&cfg);
     print_centered(240, "Настройки сохранены!");
     return 0;
 }
 
 int settings_menu() {
-    item_t tr = create_input("Количество попыток для ввода пароля", tries_inp, INPUT_DEFAULT, 2, display.width/2, 120);
-    item_t to = create_input("Время блокировки при превышении кол-ва попыток (минут)", timeout_inp, INPUT_DEFAULT, 2, display.width/2, 150);
-    item_t subm = create_selectable("Сохранить", &save_settings, display.width/2, 180);
-    item_t bck = create_selectable("Назад", &back_action, display.width/2, 210);
-    item_t *items[] = {&tr, &to, &subm, &bck};
+    itoa(cfg.tries, tries_inp);
+    itoa(cfg.timeout, timeout_inp);
+    item_t *items[] = {
+        create_input("Количество попыток для ввода пароля", tries_inp, INPUT_DEFAULT, 2, display.width/2, 120),
+        create_input("Время блокировки при превышении кол-ва попыток (минут)", timeout_inp, INPUT_DEFAULT, 2, display.width/2, 150),
+        create_selectable("Сохранить", &save_settings, 0, display.width/2, 180),
+        create_selectable("Назад", &open_menu, MENU_LOGGED, display.width/2, 210)
+    };
     menu_t menu = create_menu(items, 4);
     draw_background();
     print_centered(70, "Настройки");
     return draw_menu(&menu);
 }
 
-int open_log() {
-    return MENU_LOGS;
+int del_account(int id) {
+    delete_account(id);
+    return MENU_MANAGE;
 }
 
-int open_reg() {
-    return MENU_REG;
+int save_new_name(int id) {
+    if (!strlen(login)) {
+        print_centered(220, "Введите новый логин!");
+        return MENU_SAME;
+    }
+    user_t user;
+    get_acc_by_id(id, &user);
+    strncpy(user.name, login, MAX_LOGIN + 1);
+    update_acc_by_id(id, &user);
+    print_centered(220, "Логин успешно обновлён!");
+    return MENU_SAME;
 }
 
-int open_settings() {
-    return MENU_SETTINGS;
+int change_acc_name(int id) {
+    user_t user;
+    get_acc_by_id(id, &user);
+    item_t *items[] = { 
+        create_selectable("Назад", &open_menu, MENU_MANAGE, display.width/3, 100),
+        create_input("Новый логин", login, FALSE, MAX_LOGIN, display.width/3, 160),
+        create_selectable("Сохранить", &save_new_name, id, display.width/3, 190)
+    };
+    menu_t menu = create_menu(items, 3);
+    draw_background();
+    char *s = calloc(100, sizeof(char));
+    snprintf(s, 100, "Изменить логин для %s", user.name);
+    print_centered(70, s);
+    free(s);
+    int r = draw_menu(&menu);
+    memset(login, 0, MAX_LOGIN);
+    return r;
+}
+
+int save_new_pass(int id) {
+    if (!strlen(password)) {
+        print_centered(220, "Введите новый пароль!");
+        return MENU_SAME;
+    }
+    user_t user;
+    get_acc_by_id(id, &user);
+    uint8_t p_hash[HASH_LEN] = {0};
+    sha256_hash(password, p_hash);
+    memcpy(user.hash, p_hash, HASH_LEN);
+    update_acc_by_id(id, &user);
+    print_centered(220, "Пароль успешно обновлён!");
+    return MENU_SAME;
+}
+
+int change_acc_password(int id) {
+    user_t user;
+    get_acc_by_id(id, &user);
+    item_t *items[] = { 
+        create_selectable("Назад", &open_menu, MENU_MANAGE, display.width/3, 100),
+        create_input("Новый пароль", password, TRUE, MAX_PASS, display.width/3, 160),
+        create_selectable("Сохранить", &save_new_pass, id, display.width/3, 190)
+    };
+    menu_t menu = create_menu(items, 3);
+    draw_background();
+    char *s = calloc(100, sizeof(char));
+    snprintf(s, 100, "Изменить пароль для %s", user.name);
+    print_centered(70, s);
+    free(s);
+    int r = draw_menu(&menu);
+    memset(password, 0, MAX_PASS);
+    return r;
+}
+
+int edit_user_menu(int id) {
+    user_t user;
+    get_acc_by_id(id, &user);
+    item_t *items[] = { 
+        create_selectable("Назад", &open_menu, MENU_MANAGE, 30, 100),
+        create_selectable("Изменить логин", &change_acc_name, id, 30, 160),
+        create_selectable("Изменить пароль", &change_acc_password, id, 30, 190),
+        create_selectable("Удалить аккаунт", &del_account, id, 30, 220)
+    };
+    menu_t menu = create_menu(items, 4);
+    int r = 0;
+    while (!r) {
+        draw_background();
+        char *s = calloc(100, sizeof(char));
+        snprintf(s, 100, "Управление аккаунтом %s", user.name);
+        print_centered(70, s);
+        free(s);
+        r = draw_menu(&menu);
+    }
+    return r;
+}
+
+int select_account(int id) {
+    edit_user_menu(id);
+    return MENU_MANAGE;
+}
+
+int manage_menu() {
+    uint32_t n = get_accounts_num();
+    item_t **items = malloc((n+1)*sizeof(item_t*));
+    user_t *users = malloc(n*sizeof(user_t));
+    get_accounts(0, n, users);
+    uint32_t y = 130;
+    for (int i = 0; i < n; i++, y += 30) {
+        items[i] = create_selectable(users[i].name, &select_account, i, 50, y);
+    }
+    items[n] = create_selectable("Назад", &open_menu, MENU_LOGGED, 30, 100);
+    menu_t menu = create_menu(items, n+1);
+    draw_background();
+    print_centered(70, "Выберите пользователя для изменения:");
+    int r = draw_menu(&menu);
+    free(users);
+    return r;
 }
 
 int user_menu() {
     uintn_t w = display.width/3;
     menu_t menu;
-    item_t b = create_selectable("Загрузить систему", &boot_os, w, 120);
-    item_t l = create_selectable("Выйти из системы", &logout, w, 150);
-    item_t s = create_selectable("Выключить компьютер", &shutdown, w, 180);
-    item_t r = create_selectable("Зарегистрировать пользователя", &open_reg, w, 210);
-    item_t lg = create_selectable("Просмотр журнала событий", &open_log, w, 240);
-    item_t st = create_selectable("Настройки", &open_settings, w, 270);
+    item_t *b = create_selectable("Загрузить систему", &open_menu, MENU_BOOT, w, 120);
+    item_t *l = create_selectable("Выйти из системы", &logout, 0, w, 150);
+    item_t *s = create_selectable("Выключить компьютер", &shutdown, 0, w, 180);
+    item_t *r = create_selectable("Зарегистрировать пользователя", &open_menu, MENU_REG, w, 210);
+    item_t *lg = create_selectable("Просмотр журнала событий", &open_menu, MENU_LOGS, w, 240);
+    item_t *st = create_selectable("Настройки", &open_menu, MENU_SETTINGS, w, 270);
+    item_t *mg = create_selectable("Управление пользователями", &open_menu, MENU_MANAGE, w, 300);
     if (role == ROLE_ADMIN) {
-        item_t *items[] = {&b, &l, &s, &r, &lg, &st};
-        menu = create_menu(items, 6);
-        // add confgiure
-        // add reg user/delete user, change password?
+        item_t *items[] = {b, l, s, r, lg, st, mg};
+        menu = create_menu(items, 7);
     } else {
-        item_t *items[] = {&b, &l, &s};
+        item_t *items[] = {b, l, s};
         menu = create_menu(items, 3);
     }
     draw_background();
@@ -333,7 +420,7 @@ void init() {
     load_font("font.sfn");
     set_video_mode(&display);
     draw_base_screen();
-    load_settings(&max_tries, &timeout, &lock_till);
+    load_settings(&cfg);
 }
 
 int call_menu(int m) {
@@ -350,6 +437,8 @@ int call_menu(int m) {
         return logs_menu();
     case MENU_SETTINGS:
         return settings_menu();
+    case MENU_MANAGE:
+        return manage_menu();
     default:
         return MENU_BOOT;
     }
@@ -358,9 +447,8 @@ int call_menu(int m) {
 int main(int argc, char **argv) {
     init();
     int m = MENU_FIRST;
-    if (check_acc_exist()) m = MENU_AUTH;
+    if (get_accounts_num()) m = MENU_AUTH;
     while (m != MENU_BOOT) {
-        
         m = call_menu(m);
     }
     write_log(current_login, role, ACTION_BOOT);

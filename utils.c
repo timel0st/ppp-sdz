@@ -41,3 +41,21 @@ void write_hash(uint8_t *s, char *d) {
         sprintf(&d[i>>1], "%02x", s[i]);
     }
 }
+
+/* Reverse character order in string s of length len */
+void reverse_string(char *s, uint32_t len) {
+    for (int i = 0; i < len/2; i++) {
+        char c = s[len-1-i];
+        s[len-1-i] = s[i];
+        s[i] = c;
+    }
+    s[len] = 0;
+}
+
+/* Writes string representation of integer i to string a */
+void itoa(int i, char *a) {
+    int j = 0;
+    for (; i > 0; j++, i /= 10)
+        a[j] = (i % 10) + 0x30;
+    reverse_string(a, j);
+}

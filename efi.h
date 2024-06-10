@@ -7,7 +7,7 @@
 #include "cfg.h"
 #include "gui.h"
 
-#define HEADER_STRING "Pretty Poor Privacy SDZ v.0.6"
+#define HEADER_STRING "Pretty Poor Privacy SDZ v.1.0"
 
 #define cout ST->ConOut
 #define cin ST->ConIn
@@ -51,10 +51,5 @@ typedef UINTN EFI_TPL;
 
 typedef UINT64 EFI_PHYSICAL_ADDRESS;
 typedef UINT64 EFI_VIRTUAL_ADDRESS;
-
-
-#define cout            ST->ConOut
-#define cin             ST->ConIn
-
 
 #endif
