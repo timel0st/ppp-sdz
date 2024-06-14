@@ -6,8 +6,6 @@
 
 #define MAX_LOGIN 16
 #define MAX_PASS 16
-#define MAX_PASS_LEN    16
-#define MAX_USER_LEN    16
 #define HASH_LEN        33
 #define ACCPATH         "accs"
 #define MAX_ATTEMPTS    3
@@ -22,7 +20,7 @@ typedef enum {
 } role_t;
 
 typedef struct {
-    char name[MAX_USER_LEN];
+    char name[MAX_LOGIN];
     uint8_t hash[HASH_LEN];
     char role;
 } user_t;

@@ -172,7 +172,7 @@ void draw_input(item_t *inp) {
         inp->is_selected ? (it->is_active ? INPUT_ACTIVE_COLOR : SELECT_COLOR) : INPUT_BG_COLOR);
     int llen = mbstrlen(it->label);
     print_string(inp->x-9*llen-4, inp->y+2, it->label);
-    if (it->is_password) {
+    if (it->flag == INPUT_PASSWORD) {
         print_hidden(inp->x+2, inp->y+2, strlen(it->buf));
     } else {
         print_string(inp->x+2, inp->y+2, it->buf);
@@ -206,6 +206,10 @@ void process_input(item_t *it) {
             break; 
         } else if (strlen(inp->buf) >= inp->len)
             continue;
+        if (inp->flag == INPUT_DIGITS && (c < '0' || c > '9'))
+            continue;
+        if (c < '!' || c > '~')
+            continue;
         strncat(inp->buf, &c, 1);
         draw_input(it);
     }
@@ -222,9 +226,9 @@ menu_t create_menu(item_t **items, int len) {
     which stores input after confirmation, if is_password = true output
     would be hidden from user with "*", len - max length of input 
     x and y defines starting coordinates of input field */
-item_t* create_input(char* label, char* buf, boolean_t is_password, int len, int x, int y) {
+item_t* create_input(char* label, char* buf, uint8_t flag, int len, int x, int y) {
     input_t *input = malloc(sizeof(input_t));
-    *input = (input_t){label, buf, is_password, 0, len};
+    *input = (input_t){label, buf, flag, 0, len};
     item_t *item = malloc(sizeof(item_t));
     *item = (item_t){ITEM_INPUT, 0, x, y, input};
     return item;
@@ -298,6 +302,7 @@ int handle_menu(menu_t *m) {
     }
 }
 
+/* Renders menu elements */
 void render_menu(menu_t *m) {
     for (int i = 0; i < m->len; i++) {
         item_t *item = m->items[i];
@@ -312,6 +317,7 @@ void render_menu(menu_t *m) {
     }
 }
 
+/* Process menu */
 int draw_menu(menu_t *m) {
     render_menu(m);
     int r = handle_menu(m);

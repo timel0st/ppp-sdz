@@ -22,7 +22,11 @@ typedef enum {
     ACTION_LOGIN_ATTEMPT,
     ACTION_SHUTDOWN,
     ACTION_REGISTER,
-    ACTION_LOCK
+    ACTION_LOCK,
+    ACTION_OLDNAME,
+    ACTION_NEWNAME,
+    ACTION_NEWPASS,
+    ACTION_DELACC
 } log_action_t;
 
 // struct for storing date

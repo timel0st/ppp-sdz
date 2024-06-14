@@ -23,7 +23,8 @@ typedef enum {
 
 typedef enum {
     INPUT_DEFAULT,
-    INPUT_PASSWORD
+    INPUT_PASSWORD,
+    INPUT_DIGITS
 } input_type_t;
 
 /* SSFN Font struct */
@@ -71,7 +72,7 @@ typedef struct {
 typedef struct {
     char*       label;
     char*       buf;
-    boolean_t   is_password;
+    uint8_t   flag;
     boolean_t   is_active;
     int         len; // of buffer
 } input_t;
@@ -93,7 +94,7 @@ void draw_input(item_t *inp);
 void draw_selectable(item_t *sel);
 void process_input(item_t *it);
 menu_t create_menu(item_t **items, int len);
-item_t* create_input(char* label, char* buf, boolean_t is_password, int len, int x, int y);
+item_t* create_input(char* label, char* buf, uint8_t flag, int len, int x, int y);
 item_t* create_selectable(char* label, void* action, int arg, int x, int y);
 void draw_item(item_t *it);
 void select_item(item_t *it, boolean_t sel);

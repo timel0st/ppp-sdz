@@ -52,10 +52,15 @@ void reverse_string(char *s, uint32_t len) {
     s[len] = 0;
 }
 
-/* Writes string representation of integer i to string a */
-void itoa(int i, char *a) {
+/* 
+    Writes string representation of integer i to string a 
+    Works only for unsigned values of i
+*/
+void itoa(uint32_t i, char *a) {
     int j = 0;
     for (; i > 0; j++, i /= 10)
         a[j] = (i % 10) + 0x30;
+    if (!j)
+        a[j++] = '0';
     reverse_string(a, j);
 }

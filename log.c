@@ -78,6 +78,18 @@ void get_action_string(log_action_t action, char* out) {
         case ACTION_LOCK:
             strncpy(out, "Блокировка авторизации", 50);
             break;
+        case ACTION_OLDNAME:
+            strncpy(out, "Изменение имени с", 50);
+            break;
+        case ACTION_NEWNAME:
+            strncpy(out, "Изменение имени на", 50);
+            break;
+        case ACTION_NEWPASS:
+            strncpy(out, "Изменение пароля", 50);
+            break;
+        case ACTION_DELACC:
+            strncpy(out, "Удаление аккаунта", 50);
+            break;
     }
 }
 
