@@ -20,7 +20,7 @@ typedef enum {
 } role_t;
 
 typedef struct {
-    char name[MAX_LOGIN];
+    char name[MAX_LOGIN+1];
     uint8_t hash[HASH_LEN];
     char role;
 } user_t;

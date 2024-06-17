@@ -168,14 +168,13 @@ void print_hidden(int x, int y, int len) {
 */
 void draw_input(item_t *inp) {
     input_t *it = inp->item;
-    draw_box(inp->x, inp->y, 4 + 9*it->len, 20, 
+    draw_box(inp->x, inp->y, 2*ELEM_OFFSET + 9*it->len, 20, 
         inp->is_selected ? (it->is_active ? INPUT_ACTIVE_COLOR : SELECT_COLOR) : INPUT_BG_COLOR);
-    int llen = mbstrlen(it->label);
-    print_string(inp->x-9*llen-4, inp->y+2, it->label);
+    print_string(inp->x-9*mbstrlen(it->label)-2*ELEM_OFFSET, inp->y+ELEM_OFFSET, it->label);
     if (it->flag == INPUT_PASSWORD) {
-        print_hidden(inp->x+2, inp->y+2, strlen(it->buf));
+        print_hidden(inp->x+ELEM_OFFSET, inp->y+ELEM_OFFSET, strlen(it->buf));
     } else {
-        print_string(inp->x+2, inp->y+2, it->buf);
+        print_string(inp->x+ELEM_OFFSET, inp->y+ELEM_OFFSET, it->buf);
     }
 }
 
@@ -185,8 +184,8 @@ void draw_input(item_t *inp) {
 */
 void draw_selectable(item_t *sel) {
     select_t *it = sel->item;
-    draw_box(sel->x, sel->y, 4 + 9*mbstrlen(it->label), 20, sel->is_selected ? SELECT_COLOR : BG_COLOR);
-    print_string(sel->x+2, sel->y+2, it->label);
+    draw_box(sel->x, sel->y, 2*ELEM_OFFSET + 9*mbstrlen(it->label), 20, sel->is_selected ? SELECT_COLOR : BG_COLOR);
+    print_string(sel->x+ELEM_OFFSET, sel->y+ELEM_OFFSET, it->label);
 }
 
 /*

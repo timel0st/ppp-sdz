@@ -109,7 +109,7 @@ int auth_process() {
     int r = auth(login, password);
     if (r) {
         role = r;
-        strncpy(current_login, login, MAX_LOGIN);
+        strncpy(current_login, login, MAX_LOGIN+1);
         write_log(current_login, role, ACTION_LOGIN);
         attempts = 0;
         return MENU_LOGGED;
@@ -278,6 +278,9 @@ int settings_menu() {
 }
 
 int del_account(int id) {
+    user_t user;
+    get_acc_by_id(id, &user);
+    write_log(user.name, user.role, ACTION_DELACC);
     delete_account(id);
     return MENU_MANAGE;
 }
@@ -301,14 +304,19 @@ int ensure_delete(int id) {
 }
 
 int save_new_name(int id) {
+    draw_box(0, 220, display.width, 20, BG_COLOR);
     if (!strlen(login)) {
         print_centered(220, "Введите новый логин!");
         return MENU_SAME;
     }
+    if (does_user_exist(login)) {
+        print_centered(220, "Этот логин уже занят!");
+        return MENU_SAME;
+    }
     user_t user;
     get_acc_by_id(id, &user);
-     write_log(user.name, user.role, ACTION_OLDNAME);
-    strncpy(user.name, login, MAX_LOGIN + 1);
+    write_log(user.name, user.role, ACTION_OLDNAME);
+    strncpy(user.name, login, MAX_LOGIN+1);
     update_acc_by_id(id, &user);
     write_log(user.name, user.role, ACTION_NEWNAME);
     print_centered(220, "Логин успешно обновлён!");
@@ -335,6 +343,7 @@ int change_acc_name(int id) {
 }
 
 int save_new_pass(int id) {
+    draw_box(0, 220, display.width, 20, BG_COLOR);
     if (!strlen(password)) {
         print_centered(220, "Введите новый пароль!");
         return MENU_SAME;

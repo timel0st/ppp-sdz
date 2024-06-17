@@ -7,7 +7,7 @@
 // path to logfile
 #define LOGPATH         "logfile"
 // max entries in log file
-#define MAX_LOG_ENTRIES 100
+#define MAX_LOG_ENTRIES 10
 // max length of entities string representation
 #define MAX_TS_LEN      24
 #define MAX_ROLE_LEN    6
@@ -42,7 +42,7 @@ typedef struct {
 // log entry structure 
 typedef struct {
     log_date_t timestamp;
-    char login[MAX_LOGIN];
+    char login[MAX_LOGIN+1];
     role_t role;
     log_action_t action;
 } log_entry_t;

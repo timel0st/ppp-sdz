@@ -25,11 +25,11 @@ uint32_t get_entries_num() {
 void trim_log() {
     FILE *f = fopen(LOGPATH, "r");
     log_entry_t *buf = malloc(sizeof(log_entry_t)*(MAX_LOG_ENTRIES));
-    fseek(f, -(long)sizeof(log_entry_t)*(MAX_LOG_ENTRIES - 1), SEEK_END);
-    fread(buf, sizeof(log_entry_t), MAX_LOG_ENTRIES - 1, f);
+    fseek(f, -(long)sizeof(log_entry_t)*(MAX_LOG_ENTRIES ), SEEK_END);
+    fread(buf, sizeof(log_entry_t), MAX_LOG_ENTRIES, f);
     fclose(f);
     f = fopen(LOGPATH, "w");
-    fwrite(buf, sizeof(log_entry_t), MAX_LOG_ENTRIES - 1, f);
+    fwrite(buf, sizeof(log_entry_t), MAX_LOG_ENTRIES, f);
     free(buf);
     fclose(f);
 }
@@ -129,7 +129,7 @@ uint32_t get_log_entries(uint32_t n, uint32_t start, log_text_entry_t* out) {
             (uint64_t)entry->timestamp.hour,
             (uint64_t)entry->timestamp.minute,
             (uint64_t)entry->timestamp.second);
-        snprintf(out[i].login, MAX_LOGIN, "%s", entry->login);
+        snprintf(out[i].login, MAX_LOGIN+1, "%s\0", entry->login);
         char *a = calloc(MAX_ACTION_LEN, sizeof(uint8_t));
         char *r = calloc(MAX_ROLE_LEN, sizeof(uint8_t));
         get_action_string(entry->action, a);

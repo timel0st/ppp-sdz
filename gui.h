@@ -16,6 +16,8 @@
 #define FONT_COLOR 0xFFFFFF // color of font
 #define HEADER_HEIGHT 34 // header and footer height in px
 
+#define ELEM_OFFSET 2
+
 typedef enum {
     ITEM_SELECTABLE,
     ITEM_INPUT

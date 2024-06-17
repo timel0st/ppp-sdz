@@ -126,7 +126,7 @@ boolean_t update_acc_by_id(uint32_t id, user_t *user) {
 /* Saves user with specified credentials */
 int register_account(char role, char* name, char* pass) {
     user_t u;
-    strncpy(u.name, name, MAX_LOGIN);
+    strncpy(u.name, name, MAX_LOGIN+1);
     uint8_t p_hash[HASH_LEN] = {0};
     sha256_hash(pass, p_hash);
     memcpy(u.hash, p_hash, HASH_LEN);
