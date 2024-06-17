@@ -189,7 +189,7 @@ int reg_menu() {
 
 /* Renders logs inside logs menu */
 void render_logs() {
-    draw_box(0, 150, display.width, display.height-34-150, BG_COLOR);
+    draw_box(0, 210, display.width, display.height-34-210, BG_COLOR);
     log_text_entry_t *o = malloc(ENTRIES_PER_PAGE*sizeof(log_text_entry_t));
     int amount = get_log_entries(ENTRIES_PER_PAGE, log_cursor, o);
     int y = 210;
