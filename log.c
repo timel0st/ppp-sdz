@@ -143,3 +143,4 @@ uint32_t get_log_entries(uint32_t n, uint32_t start, log_text_entry_t* out) {
     free(entry);
     return i;
 }
+

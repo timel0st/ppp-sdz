@@ -23,7 +23,7 @@ void delete_account(uint32_t id) {
     user_t to_del;
     fread(&to_del, sizeof(user_t), 1, f);
     if (to_del.role != ROLE_ADMIN) {
-        fread(users, sizeof(user_t), n - id - 1, f);
+        fread(&users[id], sizeof(user_t), n - id - 1, f);
         fclose(f);
         f = fopen(ACCPATH, "w");
         fwrite(users, sizeof(user_t), n - 1, f);

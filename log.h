@@ -7,7 +7,7 @@
 // path to logfile
 #define LOGPATH         "logfile"
 // max entries in log file
-#define MAX_LOG_ENTRIES 10
+#define MAX_LOG_ENTRIES 1000
 // max length of entities string representation
 #define MAX_TS_LEN      24
 #define MAX_ROLE_LEN    6
