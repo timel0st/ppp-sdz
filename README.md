@@ -10,6 +10,7 @@ Uses https://github.com/queso-fuego/UEFI-GPT-image-creator for creating drive im
 
 # Usage
 QEMU with OVMF should be installed for running testing script, which runs after make
-For using on real hardware, write resulting hdd image to desirable drive with dd (e.g. removable USB drive)
+
+For running on real hardware, write resulting hdd image to desirable drive with dd (e.g. removable USB drive), then set most boot priority to removable drive at BIOS settings and reboot
 
 ```sudo dd if=test.hdd of=/dev/sdb1/ bs=1M```
