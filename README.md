@@ -1,7 +1,7 @@
 # ppp-sdz
-Pretty Poor Privacy - Means of trusted boot at boot record level of class 6 (weakest) protection level defined by FSTEC (which almost all requirements are satisfied).
+Pretty Poor Privacy - Means of trusted boot at boot record level of class 6 (weakest) protection level defined by FSTEC (which almost all requirements are satisfied). It was made for graduation project.
 
-Kinda useless for actual purposes of boot protection, has no proper installer yet, but could be a good example of an UEFI driver with POSIX-UEFI lib with minimalistic GUI, based on GOP from UEFI
+It's kinda useless for actual purposes of boot protection, has no proper installer, but could be a good example of an UEFI driver with POSIX-UEFI lib with minimalistic GUI, based on GOP from UEFI
 
 # Build
 ```make ./uefi/ && make```
